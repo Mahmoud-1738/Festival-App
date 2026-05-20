@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>❤️U Festival App</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F03228">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="❤️U Festival">
+<link rel="apple-touch-icon" href="assets/logoBlack.webp">
+<link href="https://fonts.googleapis.com/css2?family=Sansation:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { background: radial-gradient(125% 85% at 50% 0%, #1d1d1f 0%, #0c0c0d 58%, #060607 100%); display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Sansation', sans-serif; -webkit-font-smoothing: antialiased; padding: 24px; }
+  #root { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 100vh; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  @keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:0.5} }
+  @keyframes fade-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slide-up { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  @keyframes now-pulse { 0%,100%{box-shadow:0 0 0 2px #F03228, 0 0 12px rgba(240,50,40,0.5)} 50%{box-shadow:0 0 0 2px #F03228, 0 0 20px rgba(240,50,40,0.9)} }
+  @keyframes hero-glow { 0%,100%{opacity:0.5;transform:scale(0.9)} 50%{opacity:0.95;transform:scale(1.12)} }
+  @keyframes float-y { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  @keyframes tick { from{transform:translateY(-4px);opacity:0.25} to{transform:translateY(0);opacity:1} }
+  @keyframes sheen { 0%{transform:translateX(-180%)} 55%,100%{transform:translateX(520%)} }
+  .screen-enter { animation: fade-in 0.25s ease both; }
+  .sheet-enter { animation: slide-up 0.3s cubic-bezier(0.32,0.72,0,1) both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="app-data.jsx"></script>
+<script type="text/babel" src="app-markers.jsx"></script>
+<script type="text/babel" src="app-screens.jsx"></script>
+<script type="text/babel" src="app-map.jsx"></script>
+<script type="text/babel">
+const { useState: uS, useEffect: uE } = React;
+
+function getTheme(dark) {
+  return dark ? {
+    bg: '#000', bg2: '#0E0E0E', surface: '#1A1A1A',
+    cardBg: 'linear-gradient(180deg, #202021 0%, #161617 100%)',
+    border: 'rgba(255,255,255,0.08)', borderHi: 'rgba(255,255,255,0.16)',
+    text: '#FFF', text2: 'rgba(255,255,255,0.66)', text3: 'rgba(255,255,255,0.40)',
+    headerBg: 'rgba(8,8,9,0.82)', navBg: 'rgba(15,15,16,0.92)',
+    shadow: '0 12px 30px -14px rgba(0,0,0,0.85)',
+  } : {
+    bg: '#FFF', bg2: '#F1F2F4', surface: '#FFF',
+    cardBg: 'linear-gradient(180deg, #FFFFFF 0%, #F7F8F9 100%)',
+    border: 'rgba(0,0,0,0.08)', borderHi: 'rgba(0,0,0,0.14)',
+    text: '#0B0B0C', text2: 'rgba(0,0,0,0.6)', text3: 'rgba(0,0,0,0.36)',
+    headerBg: 'rgba(255,255,255,0.82)', navBg: 'rgba(255,255,255,0.92)',
+    shadow: '0 12px 30px -16px rgba(0,0,0,0.25)',
+  };
+}
+
+function Header({ dark, setDark, lang, setLang, t, th }) {
+  const btn = { background: th.surface, border: `1px solid ${th.border}`, borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: th.text2, height: 34 };
+  return (
+    <div style={{ position: 'sticky', top: 0, zIndex: 100, height: 58, background: th.headerBg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${th.border}`, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Official ❤️U logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+        <img src="assets/logoBlack.webp" alt="❤️U" style={{ width: 38, height: 38, borderRadius: 9, display: 'block', objectFit: 'cover', boxShadow: `0 0 0 1px ${th.border}` }}/>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+          <span style={{ fontFamily: 'Sansation', fontWeight: 700, fontSize: 15, color: th.text, letterSpacing: '-0.3px' }}>Festival</span>
+          <span style={{ fontFamily: 'Sansation', fontWeight: 300, fontStyle: 'italic', fontSize: 9, color: BRAND.vermilion, marginTop: 3, letterSpacing: '0.2px' }}>Utrecht 2026</span>
+        </div>
+      </div>
+      <button onClick={() => setDark(!dark)} style={{ ...btn, width: 38 }}>
+        <span className="material-icons" style={{ fontSize: 18 }}>{dark ? 'light_mode' : 'dark_mode'}</span>
+      </button>
+      <button onClick={() => setLang(lang === 'en' ? 'nl' : 'en')} style={{ ...btn, padding: '0 9px', fontSize: 16 }}>
+        {lang === 'en' ? '🇳🇱' : '🇬🇧'}
+      </button>
+    </div>
+  );
+}
+
+function BottomNav({ active, setActive, t, th }) {
+  const tabs = [
+    { id: 'home', icon: 'home', label: t.home },
+    { id: 'info', icon: 'info', label: t.info },
+    { id: 'schedule', icon: 'calendar_month', label: t.schedule },
+    { id: 'map', icon: 'map', label: t.map },
+  ];
+  return (
+    <div style={{ position: 'sticky', bottom: 0, zIndex: 100, background: th.navBg, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', display: 'flex', height: 66, borderTop: `1px solid ${th.border}` }}>
+      {tabs.map(tab => {
+        const on = active === tab.id;
+        return (
+          <button key={tab.id} onClick={() => setActive(tab.id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: on ? BRAND.vermilion : th.text3, position: 'relative', transition: 'color .15s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 27, borderRadius: 999, background: on ? BRAND.vermilion + '22' : 'transparent', transition: 'background .2s' }}>
+              <span className="material-icons" style={{ fontSize: 23, transition: 'transform .15s', transform: on ? 'scale(1.06)' : 'scale(1)' }}>{tab.icon}</span>
+            </div>
+            <span style={{ fontFamily: 'Sansation', fontWeight: on ? 700 : 400, fontSize: 10, fontStyle: 'italic' }}>{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "dark": true,
+  "lang": "nl",
+  "tab": "map"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [dark, setDark] = uS(TWEAK_DEFAULTS.dark);
+  const [lang, setLang] = uS(TWEAK_DEFAULTS.lang);
+  const [tab, setTab] = uS(TWEAK_DEFAULTS.tab || 'home');
+  const [tweakOpen, setTweakOpen] = uS(false);
+  const [favs, setFavs] = uS(new Set(['s1a2', 's2a3'])); // Kensington + Chef'Special pre-favorited
+  const nowPlayingId = 's1a2'; // Kensington "live" for demo
+
+  uE(() => {
+    const h = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweakOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweakOpen(false);
+    };
+    window.addEventListener('message', h);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', h);
+  }, []);
+
+  const applyTweak = (k, v) => {
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+    if (k === 'dark') setDark(v);
+    if (k === 'lang') setLang(v);
+    if (k === 'tab') setTab(v);
+  };
+
+  const th = getTheme(dark);
+  const t = LANG[lang];
+
+  const toggleFav = (id) => setFavs(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const screens = { home: HomeScreen, info: InfoScreen, schedule: ScheduleScreen, map: MapScreen };
+  const Screen = screens[tab];
+
+  return (
+    <div>
+      <div style={{ width: 375, height: 812, background: th.bg, borderRadius: 40, boxShadow: dark ? '0 30px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.06)' : '0 30px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.12)', overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: 'Sansation', transition: 'background .3s' }}>
+        <Header dark={dark} setDark={(v)=>applyTweak('dark',v)} lang={lang} setLang={(v)=>applyTweak('lang',v)} t={t} th={th} />
+        <div key={tab+dark+lang} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: th.bg }}>
+          <Screen t={t} th={th} dark={dark} favorites={favs} toggleFav={toggleFav} nowPlayingId={nowPlayingId} />
+        </div>
+        <BottomNav active={tab} setActive={(v)=>applyTweak('tab',v)} t={t} th={th} />
+      </div>
+
+      {tweakOpen && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, background: '#1e1e1e', borderRadius: 12, padding: 18, width: 240, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ fontFamily: 'Sansation', fontWeight: 700, fontSize: 14, color: '#fff', marginBottom: 14 }}>Tweaks</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <TwGroup label="Mode" th>
+              {[['Light',false],['Dark',true]].map(([l,v])=>(<TwBtn key={l} on={dark===v} onClick={()=>applyTweak('dark',v)}>{l}</TwBtn>))}
+            </TwGroup>
+            <TwGroup label="Language">
+              {[['🇬🇧 EN','en'],['🇳🇱 NL','nl']].map(([l,v])=>(<TwBtn key={v} on={lang===v} color={BRAND.cerulean} onClick={()=>applyTweak('lang',v)}>{l}</TwBtn>))}
+            </TwGroup>
+            <TwGroup label="Tab" wrap>
+              {['home','info','schedule','map'].map(x=>(<TwBtn key={x} on={tab===x} color={BRAND.saffron} onClick={()=>applyTweak('tab',x)}>{x}</TwBtn>))}
+            </TwGroup>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TwGroup({ label, children, wrap }) {
+  return (<div>
+    <div style={{ fontFamily: 'Sansation', fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>{label}</div>
+    <div style={{ display: 'flex', gap: 6, flexWrap: wrap ? 'wrap' : 'nowrap' }}>{children}</div>
+  </div>);
+}
+function TwBtn({ on, color, children, onClick }) {
+  const c = color || BRAND.vermilion;
+  return <button onClick={onClick} style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: on ? c : '#333', color: on && c === BRAND.saffron ? '#000' : '#fff', fontFamily: 'Sansation', fontWeight: on ? 700 : 400, fontSize: 11, textTransform: 'capitalize' }}>{children}</button>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<script>
+// ── Service Worker ──────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+// ── Install Prompt ──────────────────────────────────────────────────────────
+let _deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  showInstallBanner();
+});
+
+function showInstallBanner() {
+  if (document.getElementById('pwa-banner')) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'pwa-banner';
+  banner.style.cssText = `
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    z-index: 9999; background: #1A1A1A; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px; padding: 14px 18px; display: flex; align-items: center;
+    gap: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    font-family: 'Sansation', sans-serif; min-width: 300px; max-width: 360px;
+    animation: slide-up .3s cubic-bezier(.32,.72,0,1) both;
+  `;
+  banner.innerHTML = `
+    <img src="assets/logoBlack.webp" style="width:40px;height:40px;border-radius:10px;flex-shrink:0;object-fit:cover;">
+    <div style="flex:1;min-width:0;">
+      <div style="color:#fff;font-weight:700;font-size:13px;">Add to Home Screen</div>
+      <div style="color:rgba(255,255,255,0.55);font-size:11px;margin-top:2px;">Get the full ❤️U Festival experience</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+      <button id="pwa-install" style="background:#F03228;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-family:'Sansation',sans-serif;font-weight:700;font-size:12px;">Install</button>
+      <button id="pwa-dismiss" style="background:transparent;color:rgba(255,255,255,0.4);border:none;cursor:pointer;font-family:'Sansation',sans-serif;font-size:11px;">Not now</button>
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+
+  document.getElementById('pwa-install').addEventListener('click', async () => {
+    banner.remove();
+    if (!_deferredPrompt) return;
+    _deferredPrompt.prompt();
+    await _deferredPrompt.userChoice;
+    _deferredPrompt = null;
+  });
+
+  document.getElementById('pwa-dismiss').addEventListener('click', () => {
+    banner.remove();
+  });
+}
+</script>
+</body>
+</html>
