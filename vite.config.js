@@ -1,0 +1,33 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
+
+// ❤️U Festival — Vite + React + PWA
+export default defineConfig({
+  server: { port: 5180 },
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: '❤️U Festival',
+        short_name: '❤️U',
+        description: '❤️U Festival Utrecht 2026 — your pocket guide to stages, schedule & map',
+        lang: 'nl',
+        theme_color: '#F03228',
+        background_color: '#000000',
+        display: 'standalone',
+        orientation: 'portrait',
+        categories: ['entertainment', 'music'],
+        icons: [
+          { src: 'assets/logoBlack.webp', sizes: '192x192', type: 'image/webp', purpose: 'any' },
+          { src: 'assets/logoBlack.webp', sizes: '512x512', type: 'image/webp', purpose: 'any maskable' },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,webp,svg,png,woff,woff2}'],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+    }),
+  ],
+});
