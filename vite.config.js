@@ -1,10 +1,25 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // ❤️U Festival — Vite + React + PWA
 export default defineConfig({
-  server: { port: 5180 },
+  server: {
+    port: 5180,
+    // Proxy API calls to the Express backend during development.
+    proxy: {
+      '/api': { target: 'http://localhost:3001', changeOrigin: true },
+    },
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        admin: resolve(__dirname, 'admin.html'),
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

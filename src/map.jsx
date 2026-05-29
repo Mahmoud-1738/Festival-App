@@ -5,9 +5,53 @@
 
 // Map coordinates: x/y as % of map (0–100). Adjust to match real map.
 // Map coordinates on a 320×380 viewBox. Stages placed near paths and water.
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BRAND } from './data.js';
 import { BrandMarker, MARKER_PATHS } from './markers.jsx';
+
+// ─── Geo-referencing ──────────────────────────────────────────
+// GPS coordinates of the festival-map image edges. The artwork is
+// drawn into a 320×380 SVG viewBox (north = top). Calibrate these
+// four numbers to the real artwork to align the live GPS dot.
+// Grasweide Strijkviertel, Utrecht.
+const MAP_BOUNDS = {
+  north: 52.0764, // top edge    (y = 0)
+  south: 52.0708, // bottom edge (y = 380)
+  west:  5.0428,  // left edge   (x = 0)
+  east:  5.0512,  // right edge  (x = 320)
+};
+const VB_W = 320, VB_H = 380;
+
+// Convert latitude/longitude to image viewBox coordinates.
+function gpsToXY(lat, lng) {
+  const x = ((lng - MAP_BOUNDS.west) / (MAP_BOUNDS.east - MAP_BOUNDS.west)) * VB_W;
+  const y = ((MAP_BOUNDS.north - lat) / (MAP_BOUNDS.north - MAP_BOUNDS.south)) * VB_H;
+  return { x, y };
+}
+
+// Metres covered by the image width — used to size the accuracy ring.
+const METERS_W = (MAP_BOUNDS.east - MAP_BOUNDS.west) * 111320 * Math.cos((MAP_BOUNDS.north * Math.PI) / 180);
+const UNITS_PER_METER = VB_W / METERS_W;
+
+// Watch the browser Geolocation API while enabled.
+function useGeolocation(enabled) {
+  const [state, setState] = useState({ status: 'off', coords: null });
+  useEffect(() => {
+    if (!enabled) { setState({ status: 'off', coords: null }); return; }
+    if (!('geolocation' in navigator)) { setState({ status: 'unsupported', coords: null }); return; }
+    setState(s => ({ status: s.coords ? 'active' : 'locating', coords: s.coords }));
+    const id = navigator.geolocation.watchPosition(
+      (pos) => setState({
+        status: 'active',
+        coords: { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy },
+      }),
+      () => setState({ status: 'denied', coords: null }),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [enabled]);
+  return state;
+}
 
 const MARKERS = [
   // Stages
@@ -41,6 +85,19 @@ function MapScreen({ t, th, dark }) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragStart = useRef(null);
 
+  const geo = useGeolocation(gpsEnabled);
+  const userXY = geo.coords ? gpsToXY(geo.coords.lat, geo.coords.lng) : null;
+  const userInBounds = userXY && userXY.x >= 0 && userXY.x <= VB_W && userXY.y >= 0 && userXY.y <= VB_H;
+  const accuracyR = geo.coords ? Math.max(4, Math.min(60, geo.coords.accuracy * UNITS_PER_METER)) : 0;
+
+  // Informational banner about the current location state.
+  const banner = !gpsEnabled
+    ? { text: t.enableGPS, action: () => setGpsEnabled(true) }
+    : geo.status === 'denied'    ? { text: t.gpsDenied }
+    : geo.status === 'unsupported' ? { text: t.gpsUnsupported }
+    : (geo.status === 'active' && !userInBounds) ? { text: t.gpsOutside }
+    : null;
+
   const onPanStart = (e) => {
     const touch = e.touches ? e.touches[0] : e;
     dragStart.current = { x: touch.clientX, y: touch.clientY, panX: pan.x, panY: pan.y };
@@ -69,11 +126,11 @@ function MapScreen({ t, th, dark }) {
         </button>
       </div>
 
-      {!gpsEnabled && (
+      {banner && (
         <div style={{ margin: '0 16px 10px', background: BRAND.saffron + '1e', border: `1px solid ${BRAND.saffron}55`, borderRadius: 14, padding: '11px 13px', display: 'flex', gap: 10, alignItems: 'center' }}>
           <span className="material-icons" style={{ color: BRAND.saffron, fontSize: 18 }}>location_off</span>
-          <div style={{ flex: 1, fontFamily: 'Sansation', fontSize: 12, color: th.text2 }}>{t.enableGPS}</div>
-          <button onClick={() => setGpsEnabled(true)} style={{ background: BRAND.saffron, color: '#1A1A1A', border: 'none', borderRadius: 9, padding: '6px 13px', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>On</button>
+          <div style={{ flex: 1, fontFamily: 'Sansation', fontSize: 12, color: th.text2 }}>{banner.text}</div>
+          {banner.action && <button onClick={banner.action} style={{ background: BRAND.saffron, color: '#1A1A1A', border: 'none', borderRadius: 9, padding: '6px 13px', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>On</button>}
         </div>
       )}
 
@@ -122,14 +179,16 @@ function MapScreen({ t, th, dark }) {
               );
             })}
 
-            {/* GPS user dot */}
-            {gpsEnabled && (
+            {/* GPS user dot — real position from the Geolocation API */}
+            {gpsEnabled && geo.status === 'active' && userInBounds && (
               <g>
-                <circle cx="140" cy="262" r="10" fill={BRAND.cerulean} opacity="0.25">
+                {/* accuracy ring */}
+                <circle cx={userXY.x} cy={userXY.y} r={accuracyR} fill={BRAND.cerulean} opacity="0.12" />
+                <circle cx={userXY.x} cy={userXY.y} r="10" fill={BRAND.cerulean} opacity="0.25">
                   <animate attributeName="r" values="8;18;8" dur="2s" repeatCount="indefinite"/>
                   <animate attributeName="opacity" values="0.35;0;0.35" dur="2s" repeatCount="indefinite"/>
                 </circle>
-                <circle cx="140" cy="262" r="6" fill={BRAND.cerulean} stroke="#fff" strokeWidth="2.2"/>
+                <circle cx={userXY.x} cy={userXY.y} r="6" fill={BRAND.cerulean} stroke="#fff" strokeWidth="2.2"/>
               </g>
             )}
           </svg>
