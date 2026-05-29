@@ -201,19 +201,75 @@ const LANG = {
   }
 };
 
-// Artist bios (shared across langs — placeholder en)
+// Artist info — genre, full bio, image (in public/assets/imgs/Acts/)
+// and YouTube video id. Shared across languages.
 const ARTISTS = {
-  'Armin van Buuren':   { genre:'Trance',            bio:"Five-time World's No. 1 DJ, euphoric festival sets." },
-  'Kensington':         { genre:'Indie Rock',        bio:'Rotterdam quintet. Soaring choruses, arena-ready hooks.' },
-  'De Staat':           { genre:'Experimental Rock', bio:'Nijmegen. Funky grooves, theatrical stagecraft.' },
-  'Navarone':           { genre:'Rock',              bio:"Utrecht's own. Raw intensity, riff-driven anthems." },
-  'Dotan':              { genre:'Folk-Pop',          bio:'Intimate voice, heartfelt storytelling, platinum sales.' },
-  'Froukje':            { genre:'Pop',               bio:'Candid lyrics, synth hooks, voice of her generation.' },
-  'Martin Garrix':      { genre:'EDM',               bio:'Broke through as teen with "Animals," stadium-sized drops.' },
-  'Within Temptation':  { genre:'Symphonic Metal',   bio:'Sharon den Adel. Cinematic soundscapes, operatic vocals.' },
-  "Chef'Special":       { genre:'Funk-Pop',          bio:'Haarlem four-piece. Genre-fluid, joyous live shows.' },
-  'Eefje de Visser':    { genre:'Indie-Pop',         bio:'Hypnotic vocals, dreamlike twilight-festival vibe.' },
-  'Spinvis':            { genre:'Lo-fi Indie',       bio:'Poetic collage-songs, surreal live experiences.' },
+  'Armin van Buuren': {
+    genre: 'Trance',
+    bio: 'Five-time “World’s No. 1 DJ” and trance icon, Armin delivers euphoric, high-energy sets that have headlined festivals from Tomorrowland to Ultra. His uplifting melodies and impeccable mixing keep crowds dancing for hours.',
+    img: 'assets/imgs/Acts/Armin van Buuren.webp',
+    yt: 'TxvpctgU_s8',
+  },
+  'Martin Garrix': {
+    genre: 'EDM',
+    bio: 'Broke through as a teenager with “Animals,” Martin Garrix has become one of the biggest names in EDM. His anthemic big-room tracks and stadium-sized drops make him a festival favorite across Europe.',
+    img: 'assets/imgs/Acts/Martin Garrix.webp',
+    yt: 'Zv1QV6lrc_Y',
+  },
+  'Kensington': {
+    genre: 'Indie Rock',
+    bio: 'Rotterdam-born indie rock quintet known for soaring choruses and driving guitar riffs. Hits like “Streets” and “Riddles” showcase their knack for arena-ready hooks and emotionally charged lyricism.',
+    img: 'assets/imgs/Acts/Kensington.webp',
+    yt: 'IH77eOyV95o',
+  },
+  'Within Temptation': {
+    genre: 'Symphonic Metal',
+    bio: 'Symphonic metal pioneers fronted by Sharon den Adel. Their cinematic soundscapes and operatic vocals (think “Ice Queen,” “Mother Earth”) translate into dramatic, visually stunning festival performances.',
+    img: 'assets/imgs/Acts/Within Temptation.webp',
+    yt: 'iQVei5C2N4E',
+  },
+  'De Staat': {
+    genre: 'Experimental Rock',
+    bio: 'Experimental rock outfit from Nijmegen, blending funky grooves with angular guitar work and theatrical stagecraft. Tracks like “Witch Doctor” and “Down Town” highlight their genre-bending approach and infectious energy.',
+    img: 'assets/imgs/Acts/De Staat.webp',
+    yt: '0ttGgIQpAUc',
+  },
+  "Chef'Special": {
+    genre: 'Funk-Pop',
+    bio: 'A four-piece from Haarlem mixing funk, pop, rock and hip-hop. Their upbeat, genre-fluid sound on songs like “Amigo” and “In Your Arms” makes for joyous, dance-floor-friendly live shows.',
+    img: 'assets/imgs/Acts/Chef’Special.webp',
+    yt: 'l3jRIr44lss',
+  },
+  'Navarone': {
+    genre: 'Rock',
+    bio: 'Utrecht’s hard-hitting rock four-piece, delivering riff-driven anthems and dynamic vocals. With a live reputation for raw intensity, they’re tailor-made for late-night main stages.',
+    img: 'assets/imgs/Acts/Navarone.webp',
+    yt: 'EvLpaCSnc4k',
+  },
+  'Dotan': {
+    genre: 'Folk-Pop',
+    bio: 'Folk-pop singer-songwriter whose intimate voice and acoustic arrangements (notably on “Home”) have earned him platinum sales and sell-out shows. His heartfelt storytelling connects deeply on festival acoustic stages.',
+    img: 'assets/imgs/Acts/Dotan.webp',
+    yt: 'FZEuqzW16Nw',
+  },
+  'Eefje de Visser': {
+    genre: 'Indie-Pop',
+    bio: 'Indie-pop artist crafting atmospheric, electronic-tinged songs. Her hypnotic vocals and lush production (as heard on “Ongeveer”) create a dreamlike vibe perfect for twilight festival slots.',
+    img: 'assets/imgs/Acts/Eefje de Visser.webp',
+    yt: '6IlLJNmLDMg',
+  },
+  'Froukje': {
+    genre: 'Pop',
+    bio: 'Breakthrough pop singer Froukje Veenstra combines candid lyrics with catchy, synth-driven hooks. Since her 2021 debut, she’s become a voice of her generation — ideal for mid-day festival stages.',
+    img: 'assets/imgs/Acts/Froukje.webp',
+    yt: 'g4PlReX9e-E',
+  },
+  'Spinvis': {
+    genre: 'Lo-fi Indie',
+    bio: 'Erik de Jong performs under the moniker Spinvis, crafting poetic, collage-like songs that blend spoken-word snippets, lo-fi electronics and wistful pop. Since his debut album in 2002 — recorded in his attic — he’s become a fixture of Dutch indie, renowned for narratives that feel both intimate and surreal. His live shows turn everyday observations into shared, dreamlike experiences.',
+    img: 'assets/imgs/Acts/Spinvis.webp',
+    yt: 'F3ZTrGWSLf4',
+  },
 };
 
 // Schedule — day 1 = Sat, day 2 = Sun. Stage index: 0=Ponton 1=Lake 2=Club 3=Hangaar
