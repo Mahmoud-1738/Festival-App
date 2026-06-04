@@ -5,29 +5,64 @@
 
 // Map coordinates: x/y as % of map (0–100). Adjust to match real map.
 // Map coordinates on a 320×380 viewBox. Stages placed near paths and water.
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BRAND } from './data.js';
 import { BrandMarker, MARKER_PATHS } from './markers.jsx';
 
-const MARKERS = [
-  // Stages
-  { id: 'ponton',   kind: 'stage', mk: 'ponton',   x: 58,  y: 108, tKey: 'markerPonton',   descKey: 'mPontonD',   live: true },
-  { id: 'lake',     kind: 'stage', mk: 'lake',     x: 158, y: 168, tKey: 'markerLake',     descKey: 'mLakeD',     live: false },
-  { id: 'club',     kind: 'stage', mk: 'club',     x: 220, y: 128, tKey: 'markerClub',     descKey: 'mClubD',     live: false },
-  { id: 'hangaar',  kind: 'stage', mk: 'hangaar',  x: 268, y: 58,  tKey: 'markerHangaar',  descKey: 'mHangaarD',  live: false },
-  // Facilities
-  { id: 't1',    kind: 'fac', mk: 'toilet',   x: 35,  y: 65,  tKey: 'markerToilet', descKey: 'mToiletD' },
-  { id: 't2',    kind: 'fac', mk: 'toilet',   x: 200, y: 225, tKey: 'markerToilet', descKey: 'mToiletD' },
-  { id: 't3',    kind: 'fac', mk: 'toilet',   x: 290, y: 170, tKey: 'markerToilet', descKey: 'mToiletD' },
-  { id: 'ice',   kind: 'fac', mk: 'ice',      x: 115, y: 60,  tKey: 'markerIce',    descKey: 'mIceD' },
-  { id: 'bar1',  kind: 'fac', mk: 'bar',      x: 100, y: 160, tKey: 'markerBar',    descKey: 'mBarD' },
-  { id: 'bar2',  kind: 'fac', mk: 'bar',      x: 225, y: 195, tKey: 'markerBar',    descKey: 'mBarD' },
-  { id: 'food1', kind: 'fac', mk: 'food',     x: 135, y: 115, tKey: 'markerFood',   descKey: 'mFoodD' },
-  { id: 'food2', kind: 'fac', mk: 'food',     x: 250, y: 92,  tKey: 'markerFood',   descKey: 'mFoodD' },
-  { id: 'merch', kind: 'fac', mk: 'merch',    x: 75,  y: 240, tKey: 'markerMerch',  descKey: 'mMerchD' },
-  { id: 'lock',  kind: 'fac', mk: 'locker',   x: 110, y: 285, tKey: 'markerLocker', descKey: 'mLockerD' },
-  { id: 'aid',   kind: 'fac', mk: 'aid',      x: 178, y: 68,  tKey: 'markerAid',    descKey: 'mAidD' },
-  { id: 'entry', kind: 'fac', mk: 'entrance', x: 158, y: 335, tKey: 'markerEntry',  descKey: 'mEntryD' },
+// ─── Geo-referencing ──────────────────────────────────────────
+// GPS coordinates of the festival-map image edges. The artwork is
+// drawn into a 320×380 SVG viewBox (north = top). Calibrate these
+// four numbers to the real artwork to align the live GPS dot.
+// Grasweide Strijkviertel, Utrecht.
+const MAP_BOUNDS = {
+  north: 52.0764, // top edge    (y = 0)
+  south: 52.0708, // bottom edge (y = MAP_H)
+  west:  5.0428,  // left edge   (x = 0)
+  east:  5.0512,  // right edge  (x = MAP_W)
+};
+// Native size of the festival map artwork (kaart_festival_markers.svg).
+const MAP_W = 2330.58, VB_W = MAP_W;
+const MAP_H = 1353.19, VB_H = MAP_H;
+
+// Convert latitude/longitude to image viewBox coordinates.
+function gpsToXY(lat, lng) {
+  const x = ((lng - MAP_BOUNDS.west) / (MAP_BOUNDS.east - MAP_BOUNDS.west)) * VB_W;
+  const y = ((MAP_BOUNDS.north - lat) / (MAP_BOUNDS.north - MAP_BOUNDS.south)) * VB_H;
+  return { x, y };
+}
+
+// Metres covered by the image width — used to size the accuracy ring.
+const METERS_W = (MAP_BOUNDS.east - MAP_BOUNDS.west) * 111320 * Math.cos((MAP_BOUNDS.north * Math.PI) / 180);
+const UNITS_PER_METER = VB_W / METERS_W;
+
+// Watch the browser Geolocation API while enabled.
+function useGeolocation(enabled) {
+  const [state, setState] = useState({ status: 'off', coords: null });
+  useEffect(() => {
+    if (!enabled) { setState({ status: 'off', coords: null }); return; }
+    if (!('geolocation' in navigator)) { setState({ status: 'unsupported', coords: null }); return; }
+    setState(s => ({ status: s.coords ? 'active' : 'locating', coords: s.coords }));
+    const id = navigator.geolocation.watchPosition(
+      (pos) => setState({
+        status: 'active',
+        coords: { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy },
+      }),
+      () => setState({ status: 'denied', coords: null }),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [enabled]);
+  return state;
+}
+
+// Stage tap-targets, positioned on the artwork's own stage markers
+// (numbered 1–4 in kaart_festival_markers.svg → Ponton/Lake/Club/Hangaar).
+// Coordinates are in the map's native viewBox (MAP_W × MAP_H).
+const STAGE_HOTSPOTS = [
+  { id: 'ponton',  mk: 'ponton',  x: 496.9,  y: 849.15, tKey: 'markerPonton',  descKey: 'mPontonD',  live: true  },
+  { id: 'lake',    mk: 'lake',    x: 1256.98, y: 615.25, tKey: 'markerLake',    descKey: 'mLakeD',    live: false },
+  { id: 'club',    mk: 'club',    x: 1614.31, y: 528.68, tKey: 'markerClub',    descKey: 'mClubD',    live: false },
+  { id: 'hangaar', mk: 'hangaar', x: 2102.13, y: 231.18, tKey: 'markerHangaar', descKey: 'mHangaarD', live: false },
 ];
 
 const LEGEND_KEYS = ['ponton','lake','club','hangaar','toilet','ice','bar','food','merch','locker','aid','entrance'];
@@ -40,6 +75,19 @@ function MapScreen({ t, th, dark }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragStart = useRef(null);
+
+  const geo = useGeolocation(gpsEnabled);
+  const userXY = geo.coords ? gpsToXY(geo.coords.lat, geo.coords.lng) : null;
+  const userInBounds = userXY && userXY.x >= 0 && userXY.x <= VB_W && userXY.y >= 0 && userXY.y <= VB_H;
+  const accuracyR = geo.coords ? Math.max(28, Math.min(380, geo.coords.accuracy * UNITS_PER_METER)) : 0;
+
+  // Informational banner about the current location state.
+  const banner = !gpsEnabled
+    ? { text: t.enableGPS, action: () => setGpsEnabled(true) }
+    : geo.status === 'denied'    ? { text: t.gpsDenied }
+    : geo.status === 'unsupported' ? { text: t.gpsUnsupported }
+    : (geo.status === 'active' && !userInBounds) ? { text: t.gpsOutside }
+    : null;
 
   const onPanStart = (e) => {
     const touch = e.touches ? e.touches[0] : e;
@@ -55,8 +103,7 @@ function MapScreen({ t, th, dark }) {
   };
   const onPanEnd = () => { dragStart.current = null; };
 
-  const sel = selected ? MARKERS.find(m => m.id === selected) : null;
-  const selMk = sel ? MARKER_PATHS[sel.mk] : null;
+  const sel = selected ? STAGE_HOTSPOTS.find(m => m.id === selected) : null;
 
   return (
     <div className="screen-enter" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -69,11 +116,11 @@ function MapScreen({ t, th, dark }) {
         </button>
       </div>
 
-      {!gpsEnabled && (
+      {banner && (
         <div style={{ margin: '0 16px 10px', background: BRAND.saffron + '1e', border: `1px solid ${BRAND.saffron}55`, borderRadius: 14, padding: '11px 13px', display: 'flex', gap: 10, alignItems: 'center' }}>
           <span className="material-icons" style={{ color: BRAND.saffron, fontSize: 18 }}>location_off</span>
-          <div style={{ flex: 1, fontFamily: 'Sansation', fontSize: 12, color: th.text2 }}>{t.enableGPS}</div>
-          <button onClick={() => setGpsEnabled(true)} style={{ background: BRAND.saffron, color: '#1A1A1A', border: 'none', borderRadius: 9, padding: '6px 13px', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>On</button>
+          <div style={{ flex: 1, fontFamily: 'Sansation', fontSize: 12, color: th.text2 }}>{banner.text}</div>
+          {banner.action && <button onClick={banner.action} style={{ background: BRAND.saffron, color: '#1A1A1A', border: 'none', borderRadius: 9, padding: '6px 13px', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}>On</button>}
         </div>
       )}
 
@@ -82,54 +129,59 @@ function MapScreen({ t, th, dark }) {
         onMouseDown={onPanStart} onMouseMove={onPanMove} onMouseUp={onPanEnd} onMouseLeave={onPanEnd}
         onTouchStart={onPanStart} onTouchMove={onPanMove} onTouchEnd={onPanEnd}>
         <div style={{ position: 'absolute', inset: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center', transition: dragStart.current ? 'none' : 'transform .3s' }}>
-          <svg viewBox="0 0 320 380" style={{ width: '100%', height: '100%', display: 'block' }} preserveAspectRatio="xMidYMid meet">
+          <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={{ width: '100%', height: '100%', display: 'block' }} preserveAspectRatio="xMidYMid meet">
 
-            {/* Real festival map */}
+            {/* Full festival map — shown complete, never cropped */}
             <image
-              href="assets/kaart_losse_lagen.png"
-              x="0" y="0" width="320" height="380"
-              preserveAspectRatio="xMidYMid slice"
-              style={{ filter: dark ? 'brightness(0.75) saturate(0.85)' : 'none' }}
+              href="assets/kaart_festival_markers.svg"
+              x="0" y="0" width={MAP_W} height={MAP_H}
+              preserveAspectRatio="xMidYMid meet"
+              style={{ filter: dark ? 'brightness(0.82) saturate(0.9)' : 'none' }}
             />
 
-            {/* Markers — render each as foreignObject for clean scaling */}
-            {MARKERS.map(m => {
-              const isStage = m.kind === 'stage';
-              const size = isStage ? 32 : 22;
+            {/* Stage tap-targets over the artwork's own stage markers */}
+            {STAGE_HOTSPOTS.map(m => {
               const isSel = selected === m.id;
+              const name = (t[m.tKey] || '').split('·')[0].trim();
               return (
                 <g key={m.id} onClick={(e)=>{e.stopPropagation(); setSelected(isSel ? null : m.id);}} style={{ cursor: 'pointer' }}>
-                  <foreignObject x={m.x - size/2} y={m.y - size/2} width={size} height={size}>
-                    <div xmlns="http://www.w3.org/1999/xhtml" style={{ width: '100%', height: '100%', transform: isSel ? 'scale(1.18)' : 'scale(1)', transition: 'transform .2s' }}>
-                      <BrandMarker kind={m.mk} size={size} selected={isSel}/>
-                    </div>
-                  </foreignObject>
-                  {isStage && (
-                    <g>
-                      <rect x={m.x-30} y={m.y+size/2+3} width="60" height="13" rx="3" fill="#000" opacity="0.88"/>
-                      <text x={m.x} y={m.y+size/2+12} textAnchor="middle" fontSize="8" fontFamily="Sansation" fontWeight="700" fill="#fff">{t[m.tKey]}</text>
-                      {m.live && (
-                        <g>
-                          <rect x={m.x+12} y={m.y-size/2-14} width="28" height="11" rx="5.5" fill={BRAND.vermilion}>
-                            <animate attributeName="opacity" values="1;0.45;1" dur="1.2s" repeatCount="indefinite"/>
-                          </rect>
-                          <text x={m.x+26} y={m.y-size/2-6} textAnchor="middle" fontSize="7" fontFamily="Sansation" fontWeight="700" fill="#fff">● LIVE</text>
-                        </g>
-                      )}
+                  {/* selection halo */}
+                  {isSel && (
+                    <circle cx={m.x} cy={m.y} r={58} fill="none" stroke={BRAND.vermilion} strokeWidth={7}>
+                      <animate attributeName="r" values="50;64;50" dur="1.4s" repeatCount="indefinite"/>
+                    </circle>
+                  )}
+                  {/* invisible tap area */}
+                  <circle cx={m.x} cy={m.y} r={60} fill="#fff" opacity={0} />
+                  {/* name label below the marker */}
+                  <g pointerEvents="none">
+                    <rect x={m.x-95} y={m.y+44} width={190} height={40} rx={10} fill="#000" opacity="0.82"/>
+                    <text x={m.x} y={m.y+71} textAnchor="middle" fontSize="26" fontFamily="Sansation" fontWeight="700" fill="#fff">{name}</text>
+                  </g>
+                  {/* live badge */}
+                  {m.live && (
+                    <g pointerEvents="none">
+                      <rect x={m.x+18} y={m.y-78} width={104} height={40} rx={20} fill={BRAND.vermilion}>
+                        <animate attributeName="opacity" values="1;0.45;1" dur="1.2s" repeatCount="indefinite"/>
+                      </rect>
+                      <text x={m.x+70} y={m.y-51} textAnchor="middle" fontSize="22" fontFamily="Sansation" fontWeight="700" fill="#fff">● LIVE</text>
                     </g>
                   )}
                 </g>
               );
             })}
 
-            {/* GPS user dot */}
-            {gpsEnabled && (
+            {/* GPS user dot — real position from the Geolocation API */}
+            {gpsEnabled && geo.status === 'active' && userInBounds && (
               <g>
-                <circle cx="140" cy="262" r="10" fill={BRAND.cerulean} opacity="0.25">
-                  <animate attributeName="r" values="8;18;8" dur="2s" repeatCount="indefinite"/>
+                {/* accuracy ring */}
+                <circle cx={userXY.x} cy={userXY.y} r={accuracyR} fill={BRAND.cerulean} opacity="0.12" />
+                <circle cx={userXY.x} cy={userXY.y} r="70" fill={BRAND.cerulean} opacity="0.25">
+                  <animate attributeName="r" values="56;120;56" dur="2s" repeatCount="indefinite"/>
                   <animate attributeName="opacity" values="0.35;0;0.35" dur="2s" repeatCount="indefinite"/>
                 </circle>
-                <circle cx="140" cy="262" r="6" fill={BRAND.cerulean} stroke="#fff" strokeWidth="2.2"/>
+                <circle cx={userXY.x} cy={userXY.y} r="42" fill={BRAND.cerulean} opacity="0.22"/>
+                <circle cx={userXY.x} cy={userXY.y} r="24" fill={BRAND.cerulean} stroke="#fff" strokeWidth="9"/>
               </g>
             )}
           </svg>

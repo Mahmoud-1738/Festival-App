@@ -3,6 +3,18 @@
 // ═══════════════════════════════════════════════════════════
 import { useState, useEffect, useRef } from 'react';
 import { BRAND, ARTISTS, KIND_COLOR, STAGES, SCHEDULE, timeToY, dur } from './data.js';
+import { fetchSchedule } from './api.js';
+
+// Load the schedule from the API once, with bundled-data fallback.
+function useSchedule() {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchSchedule().then(d => { if (alive) setData(d); });
+    return () => { alive = false; };
+  }, []);
+  return data;
+}
 
 // ─── COUNTDOWN HOOK ───────────────────────────────────────────
 function useCountdown() {
@@ -326,19 +338,32 @@ function ScheduleScreen({ t, th, dark, favorites, toggleFav, nowPlayingId }) {
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState(null);
   const [remindersSet, setRemindersSet] = useState({});
+  const data = useSchedule();
 
   const PX_PER_HOUR = 80;
   const HOURS = 14; // 10 -> 24
   const STAGE_H = 82;
   const LABEL_W = 76;
 
-  const acts = SCHEDULE[day];
+  // Loading state while the schedule is fetched from the API.
+  if (!data) {
+    return (
+      <div className="screen-enter" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: th.text3 }}>
+        <span className="material-icons" style={{ fontSize: 30, animation: 'spin 0.9s linear infinite' }}>autorenew</span>
+        <span style={{ fontFamily: 'Sansation', fontSize: 12 }}>{t.scheduleTitle}…</span>
+      </div>
+    );
+  }
+
+  const stages = data.stages;
+  const artists = data.artists;
+  const acts = data.schedule[day] || [];
   const stageActs = (i) => acts.filter(a => a.s === i);
 
   const act = selected;
 
   const fireToast = (act) => {
-    setToast({ name: act.name, stage: STAGES[act.s] });
+    setToast({ name: act.name, stage: stages[act.s]?.name });
     setRemindersSet(prev => ({ ...prev, [act.id]: true }));
     setTimeout(() => setToast(null), 3500);
   };
@@ -373,9 +398,16 @@ function ScheduleScreen({ t, th, dark, favorites, toggleFav, nowPlayingId }) {
         })}
       </div>
 
+      {data.offline && (
+        <div style={{ margin: '0 16px 8px', display: 'flex', alignItems: 'center', gap: 6, color: th.text3, fontFamily: 'Sansation', fontSize: 10, fontStyle: 'italic' }}>
+          <span className="material-icons" style={{ fontSize: 13 }}>cloud_off</span>
+          {t.scheduleOffline}
+        </div>
+      )}
+
       {/* Scrollable grid — horizontal time + vertical stages */}
       <div style={{ flex: 1, overflow: 'auto', background: th.bg2, position: 'relative' }}>
-        <div style={{ position: 'relative', width: LABEL_W + HOURS * PX_PER_HOUR, height: 4 * STAGE_H + 28 }}>
+        <div style={{ position: 'relative', width: LABEL_W + HOURS * PX_PER_HOUR, height: stages.length * STAGE_H + 28 }}>
           {/* Time header */}
           <div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', height: 28, background: th.surface, borderBottom: `1px solid ${th.border}` }}>
             <div style={{ width: LABEL_W, flexShrink: 0, background: th.surface, borderRight: `1px solid ${th.border}`, position: 'sticky', left: 0, zIndex: 2 }} />
@@ -388,13 +420,13 @@ function ScheduleScreen({ t, th, dark, favorites, toggleFav, nowPlayingId }) {
             <div key={i} style={{ position: 'absolute', top: 28, bottom: 0, left: LABEL_W + i * (PX_PER_HOUR / 4), width: 1, background: i % 4 === 0 ? th.border : (dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)') }} />
           ))}
           {/* Stage rows */}
-          {STAGES.map((stage, si) => (
+          {stages.map((stage, si) => (
             <div key={si} style={{ position: 'absolute', top: 28 + si * STAGE_H, left: 0, right: 0, height: STAGE_H, borderBottom: `1px solid ${th.border}` }}>
               {/* Sticky label */}
               <div style={{ position: 'sticky', left: 0, width: LABEL_W, height: STAGE_H, background: th.surface, borderRight: `1px solid ${th.border}`, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 10px', zIndex: 3 }}>
-                <div style={{ fontFamily: 'Sansation', fontWeight: 700, fontSize: 12, color: th.text }}>{stage}</div>
+                <div style={{ fontFamily: 'Sansation', fontWeight: 700, fontSize: 12, color: th.text }}>{stage.name}</div>
                 <div style={{ fontFamily: 'Sansation', fontWeight: 300, fontStyle: 'italic', fontSize: 9, color: th.text3, marginTop: 2 }}>
-                  {si === 0 ? 'Main' : si === 1 ? 'Talent' : si === 2 ? 'Theater' : 'Dance'}
+                  {stage.sub}
                 </div>
               </div>
               {/* Blocks */}
@@ -441,7 +473,7 @@ function ScheduleScreen({ t, th, dark, favorites, toggleFav, nowPlayingId }) {
 
       {/* Act detail bottom sheet */}
       {act && (
-        <ActSheet act={act} t={t} th={th} dark={dark} onClose={() => setSelected(null)}
+        <ActSheet act={act} t={t} th={th} dark={dark} stages={stages} artists={artists} onClose={() => setSelected(null)}
           isFav={favorites.has(act.id)} toggleFav={() => toggleFav(act.id)}
           reminderSet={remindersSet[act.id]}
           onSetReminder={() => fireToast(act)} />
@@ -450,8 +482,18 @@ function ScheduleScreen({ t, th, dark, favorites, toggleFav, nowPlayingId }) {
   );
 }
 
-function ActSheet({ act, t, th, dark, onClose, isFav, toggleFav, reminderSet, onSetReminder }) {
-  const artistData = ARTISTS[act.name] || { genre: act.k === 'talent' ? 'Talent' : act.k === 'club' ? act.name.split(' · ')[0] : act.k === 'dj' ? 'DJ Set' : 'Live', bio: 'An exciting act you don\'t want to miss. Full lineup info coming soon.' };
+function ActSheet({ act, t, th, dark, stages = STAGES, artists = ARTISTS, onClose, isFav, toggleFav, reminderSet, onSetReminder }) {
+  const [playing, setPlaying] = useState(false);
+  const stageName = (typeof stages[act.s] === 'string' ? stages[act.s] : stages[act.s]?.name) || '';
+  // Bundled ARTISTS holds the rich media (image, video); the API artist
+  // record is a fallback. Per-act CMS fields override genre/bio when set.
+  const meta = { ...(artists?.[act.name] || {}), ...(ARTISTS[act.name] || {}) };
+  const artistData = {
+    genre: act.genre || meta.genre || (act.k === 'talent' ? 'Talent' : act.k === 'club' ? act.name.split(' · ')[0] : act.k === 'dj' ? 'DJ Set' : 'Live'),
+    bio: act.bio || meta.bio || 'An exciting act you don\'t want to miss. Full lineup info coming soon.',
+  };
+  const img = meta.img ? encodeURI(meta.img) : null;
+  const yt = meta.yt || null;
   const color = KIND_COLOR(act.k);
   const onSaffron = color === BRAND.saffron;
   return (
@@ -460,16 +502,22 @@ function ActSheet({ act, t, th, dark, onClose, isFav, toggleFav, reminderSet, on
       <div className="sheet-enter" style={{ position: 'relative', width: '100%', background: th.bg, borderRadius: '24px 24px 0 0', maxHeight: '88%', overflowY: 'auto', zIndex: 1, boxShadow: '0 -10px 40px rgba(0,0,0,0.5)' }}>
         {/* Drag handle */}
         <div style={{ width: 38, height: 5, borderRadius: 3, background: th.borderHi, margin: '10px auto 6px' }} />
-        {/* Artist photo placeholder */}
-        <div style={{ height: 150, margin: '6px 14px', borderRadius: 18, background: `linear-gradient(140deg, ${color} 0%, ${color}88 100%)`, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: 0.18 }}>
-            <defs><pattern id="p1" width="22" height="22" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="22" y2="22" stroke="#fff" strokeWidth="1.2"/></pattern></defs>
-            <rect width="100%" height="100%" fill="url(#p1)"/>
-          </svg>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.4) 100%)' }} />
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-icons" style={{ fontSize: 34, color: '#fff' }}>music_note</span>
-          </div>
+        {/* Artist photo (falls back to a patterned placeholder) */}
+        <div style={{ height: 168, margin: '6px 14px', borderRadius: 18, background: `linear-gradient(140deg, ${color} 0%, ${color}88 100%)`, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {img ? (
+            <img src={img} alt={act.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: 0.18 }}>
+              <defs><pattern id="p1" width="22" height="22" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="22" y2="22" stroke="#fff" strokeWidth="1.2"/></pattern></defs>
+              <rect width="100%" height="100%" fill="url(#p1)"/>
+            </svg>
+          )}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.55) 100%)' }} />
+          {!img && (
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.18)', border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="material-icons" style={{ fontSize: 34, color: '#fff' }}>music_note</span>
+            </div>
+          )}
         </div>
         {/* Name + genre */}
         <div style={{ padding: '14px 18px 0' }}>
@@ -477,7 +525,7 @@ function ActSheet({ act, t, th, dark, onClose, isFav, toggleFav, reminderSet, on
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <span style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)`, color: onSaffron ? '#1A1A1A' : '#fff', borderRadius: 999, padding: '4px 11px', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11 }}>{artistData.genre}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: th.text2, fontFamily: 'Sansation', fontSize: 11 }}>
-              <span className="material-icons" style={{ fontSize: 14 }}>location_on</span>{STAGES[act.s]}
+              <span className="material-icons" style={{ fontSize: 14 }}>location_on</span>{stageName}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: th.text2, fontFamily: 'Sansation', fontSize: 11 }}>
               <span className="material-icons" style={{ fontSize: 14 }}>schedule</span>{act.start} – {act.end}
@@ -486,16 +534,31 @@ function ActSheet({ act, t, th, dark, onClose, isFav, toggleFav, reminderSet, on
         </div>
         {/* Bio */}
         <div style={{ padding: '14px 18px 0', fontFamily: 'Sansation', fontSize: 13, color: th.text2, lineHeight: 1.7 }}>{artistData.bio}</div>
-        {/* YouTube */}
-        <div style={{ padding: '14px 18px 0' }}>
-          <div style={{ borderRadius: 16, overflow: 'hidden', background: th.bg2, border: `1px solid ${th.border}`, position: 'relative', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${color}55, ${color}11)` }} />
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, boxShadow: '0 6px 18px rgba(0,0,0,0.5)' }}>
-              <span className="material-icons" style={{ color: '#fff', fontSize: 32, marginLeft: 3 }}>play_arrow</span>
+        {/* YouTube — click the thumbnail to load the embedded player */}
+        {yt && (
+          <div style={{ padding: '14px 18px 0' }}>
+            <div style={{ borderRadius: 16, overflow: 'hidden', background: '#000', border: `1px solid ${th.border}`, position: 'relative', aspectRatio: '16/9' }}>
+              {playing ? (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0`}
+                  title={act.name}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <div onClick={() => setPlaying(true)} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <img src={`https://img.youtube.com/vi/${yt}/hqdefault.jpg`} alt={act.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.28)' }} />
+                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, boxShadow: '0 6px 18px rgba(0,0,0,0.5)' }}>
+                    <span className="material-icons" style={{ color: '#fff', fontSize: 32, marginLeft: 3 }}>play_arrow</span>
+                  </div>
+                  <div style={{ position: 'absolute', bottom: 9, left: 12, color: '#fff', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11, zIndex: 1, textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{t.watchVideo}</div>
+                </div>
+              )}
             </div>
-            <div style={{ position: 'absolute', bottom: 9, left: 12, color: '#fff', fontFamily: 'Sansation', fontWeight: 700, fontSize: 11, zIndex: 1, textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{t.watchVideo}</div>
           </div>
-        </div>
+        )}
         {/* Favorite */}
         <div style={{ padding: '14px 18px 8px' }}>
           <button onClick={toggleFav} style={{

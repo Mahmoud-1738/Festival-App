@@ -3,3 +3,6 @@ dist
 dev-dist
 *.local
 .DS_Store
+
+# Runtime CMS store — auto-seeded from src/data.js on first run
+server/data/*.json
